@@ -3,11 +3,11 @@
 version: 3
 
 env:
+  CLUSTER_NAME: default
+  KUBECONFIG: ~/.kube/config
   ISTIO_WORKDIR: /tmp
   ISTIO_VERSION: 1.26.2
-  KUBECONFIG: ~/.kube/config
   ISTIO_NAMESPACE: istio-system
-  CLUSTER_NAME: default
   ISTIO_ROOTCA_DAYS: 3650
   ISTIO_ROOTCA_KEYSZ: 4096
   ISTIO_ROOTCA_ORG: Istio
