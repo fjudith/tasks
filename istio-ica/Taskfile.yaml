@@ -4,7 +4,7 @@ version: 3
 
 env:
   CLUSTER_NAME: default
-  KUBECONFIG: ~/.kube/config
+  # KUBECONFIG: ~/.kube/config
   ISTIO_WORKDIR: /tmp
   ISTIO_VERSION: 1.26.2
   ISTIO_NAMESPACE: istio-system
