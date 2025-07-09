@@ -1,8 +1,7 @@
 version: 3
 
 tasks:
-
-  istio:rootca:
+  rootca:
     desc: Generate root CA for Istio
     vars:
       ROOTCA_DAYS: 3650
@@ -49,7 +48,7 @@ tasks:
           -in root-cert.csr \
           -out root-cert.pem
 
-  istio:intermediate:
+  intermediate:
     desc: Generate intermediate CA for Istio
     vars:
       NAME: istiocluster
@@ -108,7 +107,7 @@ tasks:
           cat {{.NAME}}/ca-cert.pem > {{.NAME}}/cert-chain.pem
           cp root-cert.pem {{.NAME}}/
 
-  istio:workload:
+  workload:
     desc: Generate workload certificates for Istio
     vars:
       NAME: istiocluster
