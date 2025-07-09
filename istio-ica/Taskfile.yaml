@@ -20,10 +20,11 @@ env:
   ISTIO_WORKLOAD_DAYS: 1
   ISTIO_SERVICE_ACCOUNT: default
   ISTIO_WORKLOAD_CN: Workload
+
 tasks:
   rootca:
     desc: Generate root CA for Istio
-    dir: {{.ISTIO_WORKDIR}}
+    dir: "{{.ISTIO_WORKDIR}}"
     cmds:
       - cmd: |
           cat <<EOF > root-ca.conf
@@ -63,7 +64,7 @@ tasks:
 
   intermediate:
     desc: Generate intermediate CA for Istio
-    dir: {{.ISTIO_WORKDIR}}
+    dir: "{{.ISTIO_WORKDIR}}"
     cmds:
       - cmd: mkdir -p {{.CLUSTER_NAME}}
       - cmd: |
@@ -115,7 +116,7 @@ tasks:
 
   workload:
     desc: Generate workload certificates for Istio
-    dir: {{.ISTIO_WORKDIR}}
+    dir: "{{.ISTIO_WORKDIR}}"
     cmds:
       - cmd: mkdir -p {{.CLUSTER_NAME}}
       - cmd: |
