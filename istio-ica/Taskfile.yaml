@@ -172,7 +172,7 @@ tasks:
     summary: >
       Install Istio on K3S (see: https://istio.io/latest/docs/ambient/install/platform-prerequisites/#k3s)
     vars:
-      VERSION: {{.ISTIO_VERSION}}
+      VERSION: "{{.ISTIO_VERSION}}"
       PLATFORM: k3s
     cmds:
       - cmd: mkdir -p {{.ISTIO_WORKDIR}}
