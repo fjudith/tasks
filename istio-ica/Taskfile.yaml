@@ -1,4 +1,10 @@
+# https://taskfile.dev
+
 version: 3
+
+env:
+  ISTIO_WORKDIR: /tmp
+  ISTIO_VERSION: 1.26.2
 
 tasks:
   rootca:
@@ -10,7 +16,7 @@ tasks:
       ROOTCA_CN: Root CA
       KUBECONFIG: ~/.kube/config
       ISTIO_NAMESPACE: istio-system
-    dir: .bin/
+    dir: {{.ISTIO_WORKDIR}}
     cmds:
       - cmd: |
           cat <<EOF > root-ca.conf
@@ -57,7 +63,7 @@ tasks:
       INTERMEDIATE_ORG: Istio
       INTERMEDIATE_CN: Intermediate CA
       INTERMEDIATE_SAN_DNS: istiod.istio-system.svc
-    dir: .bin/
+    dir: {{.ISTIO_WORKDIR}}
     cmds:
       - cmd: mkdir -p {{.CLUSTER_NAME}}
       - cmd: |
@@ -116,7 +122,7 @@ tasks:
       WORKLOAD_DAYS: 1
       SERVICE_ACCOUNT: default
       WORKLOAD_CN: Workload
-    dir: .bin/
+    dir: {{.ISTIO_WORKDIR}}
     cmds:
       - cmd: mkdir -p {{.CLUSTER_NAME}}
       - cmd: |
@@ -166,3 +172,34 @@ tasks:
       - cmd: |
           cat {{.CLUSTER_NAME}}/ca-cert.pem > {{.CLUSTER_NAME}}/cert-chain.pem
           cp root-cert.pem {{.CLUSTER_NAME}}/
+
+  deploy:istio:
+    desc: Install Istio
+    summary: >
+      Install Istio on K3S (see: https://istio.io/latest/docs/ambient/install/platform-prerequisites/#k3s)
+    vars:
+      VERSION: {{.ISTIO_VERSION}}
+      PLATFORM: k3s
+    cmds:
+      - cmd: mkdir -p {{.ISTIO_WORKDIR}}
+      - cmd: |
+          curl -fsSL https://github.com/istio/istio/releases/download/{{.VERSION}}/istio-{{.VERSION}}-linux-amd64.tar.gz \
+          | tar xvzf - --strip-component=1 --directory={{.ISTIO_WORKDIR}} \
+          && mv {{.ISTIO_WORKDIR}}bin/istioctl {{.ISTIO_WORKDIR}}istioctl
+      - cmd: |
+          cat <<EOF > {{.ISTIO_WORKDIR}}install-istio-config.yaml
+          apiVersion: install.istio.io/v1alpha1
+          kind: IstioOperator
+          spec:
+            profile: ambient
+            components:
+              ingressGateways:
+                - name: istio-ingressgateway
+                  k8s:
+                    serviceAnnotations:
+                      metallb.universe.tf/allow-shared-ip: edge-endpoint
+          EOF
+      - cmd: |
+          {{.ISTIO_WORKDIR}}istioctl install --verify --skip-confirmation \
+          --set values.global.platform={{.PLATFORM}} \
+          -f {{.ISTIO_WORKDIR}}install-istio-config.yaml
