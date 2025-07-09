@@ -51,7 +51,7 @@ tasks:
   intermediate:
     desc: Generate intermediate CA for Istio
     vars:
-      NAME: istiocluster
+      CLUSTER_NAME: cluster0
       INTERMEDIATE_DAYS: 3650
       INTERMEDIATE_KEYSZ: 4096
       INTERMEDIATE_ORG: Istio
@@ -59,9 +59,9 @@ tasks:
       INTERMEDIATE_SAN_DNS: istiod.istio-system.svc
     dir: .bin/
     cmds:
-      - cmd: mkdir -p {{.NAME}}
+      - cmd: mkdir -p {{.CLUSTER_NAME}}
       - cmd: |
-          cat <<EOF > {{.NAME}}/intermediate.conf
+          cat <<EOF > {{.CLUSTER_NAME}}/intermediate.conf
           [ req ]
           encrypt_key = no
           prompt = no
@@ -84,16 +84,16 @@ tasks:
           [ req_dn ]
           O = {{.INTERMEDIATE_ORG}}
           CN = {{.INTERMEDIATE_CN}}
-          L = {{.NAME}}
+          L = {{.CLUSTER_NAME}}
           EOF
-      - cmd: mkdir -p {{.NAME}}
+      - cmd: mkdir -p {{.CLUSTER_NAME}}
       - cmd: |
-          openssl genrsa -out {{.NAME}}/ca-key.pem 4096
+          openssl genrsa -out {{.CLUSTER_NAME}}/ca-key.pem 4096
       - cmd: |
           openssl req -sha256 -new \
-          -key {{.NAME}}/ca-key.pem \
-          -config {{.NAME}}/intermediate.conf \
-          -out {{.NAME}}/cluster-ca.csr
+          -key {{.CLUSTER_NAME}}/ca-key.pem \
+          -config {{.CLUSTER_NAME}}/intermediate.conf \
+          -out {{.CLUSTER_NAME}}/cluster-ca.csr
       - cmd: |
           openssl x509 -req -sha256 \
           -days {{.INTERMEDIATE_DAYS}} \
@@ -101,16 +101,16 @@ tasks:
           -CAkey root-key.pem \
           -CAcreateserial \
           -extensions req_ext \
-          -extfile {{.NAME}}/intermediate.conf \
-          -in {{.NAME}}/cluster-ca.csr -out {{.NAME}}/ca-cert.pem
+          -extfile {{.CLUSTER_NAME}}/intermediate.conf \
+          -in {{.CLUSTER_NAME}}/cluster-ca.csr -out {{.CLUSTER_NAME}}/ca-cert.pem
       - cmd: |
-          cat {{.NAME}}/ca-cert.pem > {{.NAME}}/cert-chain.pem
-          cp root-cert.pem {{.NAME}}/
+          cat {{.CLUSTER_NAME}}/ca-cert.pem > {{.CLUSTER_NAME}}/cert-chain.pem
+          cp root-cert.pem {{.CLUSTER_NAME}}/
 
   workload:
     desc: Generate workload certificates for Istio
     vars:
-      NAME: istiocluster
+      CLUSTER_NAME: cluster0
       INTERMEDIATE_KEYSZ: 4096
       INTERMEDIATE_ORG: Istio
       WORKLOAD_DAYS: 1
@@ -118,9 +118,9 @@ tasks:
       WORKLOAD_CN: Workload
     dir: .bin/
     cmds:
-      - cmd: mkdir -p {{.NAME}}
+      - cmd: mkdir -p {{.CLUSTER_NAME}}
       - cmd: |
-          cat <<EOF > {{.NAME}}/workload.conf
+          cat <<EOF > {{.CLUSTER_NAME}}/workload.conf
           [ req ]
           encrypt_key = no
           prompt = no
@@ -139,30 +139,30 @@ tasks:
           subjectAltName=@san
 
           [ san ]
-          URI.1 = spiffe://cluster.local/ns/${{.NAME}}sa/{{.SERVICE_ACCOUNT}}
+          URI.1 = spiffe://cluster.local/ns/${{.CLUSTER_NAME}}sa/{{.SERVICE_ACCOUNT}}
 
           [ req_dn ]
           O = {{.INTERMEDIATE_ORG}}
           CN = {{.WORKLOAD_CN}}
-          L = {{.NAME}}
+          L = {{.CLUSTER_NAME}}
           EOF
-      - cmd: mkdir -p {{.NAME}}
+      - cmd: mkdir -p {{.CLUSTER_NAME}}
       - cmd: |
-          openssl genrsa -out {{.NAME}}/key.pem 4096
+          openssl genrsa -out {{.CLUSTER_NAME}}/key.pem 4096
       - cmd: |
           openssl req -sha256 -new \
-          -key {{.NAME}}/ca-key.pem \
-          -config {{.NAME}}/workload.conf \
-          -out {{.NAME}}/workload.csr
+          -key {{.CLUSTER_NAME}}/ca-key.pem \
+          -config {{.CLUSTER_NAME}}/workload.conf \
+          -out {{.CLUSTER_NAME}}/workload.csr
       - cmd: |
           openssl x509 -req -sha256 \
           -days {{.WORKLOAD_DAYS}} \
-          -CA {{.NAME}}/ca-cert.pem \
-          -CAkey {{.NAME}}/ca-key.pem \
+          -CA {{.CLUSTER_NAME}}/ca-cert.pem \
+          -CAkey {{.CLUSTER_NAME}}/ca-key.pem \
           -CAcreateserial \
           -extensions req_ext \
-          -extfile {{.NAME}}/workload.conf \
-          -in {{.NAME}}/workload.csr -out {{.NAME}}/workload-cert.pem
+          -extfile {{.CLUSTER_NAME}}/workload.conf \
+          -in {{.CLUSTER_NAME}}/workload.csr -out {{.CLUSTER_NAME}}/workload-cert.pem
       - cmd: |
-          cat {{.NAME}}/ca-cert.pem > {{.NAME}}/cert-chain.pem
-          cp root-cert.pem {{.NAME}}/
+          cat {{.CLUSTER_NAME}}/ca-cert.pem > {{.CLUSTER_NAME}}/cert-chain.pem
+          cp root-cert.pem {{.CLUSTER_NAME}}/
