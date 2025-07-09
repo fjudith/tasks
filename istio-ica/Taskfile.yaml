@@ -5,17 +5,24 @@ version: 3
 env:
   ISTIO_WORKDIR: /tmp
   ISTIO_VERSION: 1.26.2
-
+  KUBECONFIG: ~/.kube/config
+  ISTIO_NAMESPACE: istio-system
+  CLUSTER_NAME: default
+  ISTIO_ROOTCA_DAYS: 3650
+  ISTIO_ROOTCA_KEYSZ: 4096
+  ISTIO_ROOTCA_ORG: Istio
+  ISTIO_ROOTCA_CN: Root CA
+  ISTIO_INTERMEDIATE_DAYS: 3650
+  ISTIO_INTERMEDIATE_KEYSZ: 4096
+  ISTIO_INTERMEDIATE_ORG: Istio
+  ISTIO_INTERMEDIATE_CN: Intermediate CA
+  ISTIO_INTERMEDIATE_SAN_DNS: istiod.istio-system.svc
+  ISTIO_WORKLOAD_DAYS: 1
+  ISTIO_SERVICE_ACCOUNT: default
+  ISTIO_WORKLOAD_CN: Workload
 tasks:
   rootca:
     desc: Generate root CA for Istio
-    vars:
-      ROOTCA_DAYS: 3650
-      ROOTCA_KEYSZ: 4096
-      ROOTCA_ORG: Istio
-      ROOTCA_CN: Root CA
-      KUBECONFIG: ~/.kube/config
-      ISTIO_NAMESPACE: istio-system
     dir: {{.ISTIO_WORKDIR}}
     cmds:
       - cmd: |
@@ -25,7 +32,7 @@ tasks:
           prompt = no
           utf8 = yes
           default_md = sha256
-          default_bits = {{.ROOTCA_KEYSZ}}
+          default_bits = {{.ISTIO_ROOTCA_KEYSZ}}
           req_extensions = req_ext
           x509_extensions = req_ext
           distinguished_name = req_dn
@@ -36,8 +43,8 @@ tasks:
           keyUsage = critical, digitalSignature, nonRepudiation, keyEncipherment, keyCertSign
 
           [ req_dn ]
-          O = {{.ROOTCA_ORG}}
-          CN = {{.ROOTCA_CN}}
+          O = {{.ISTIO_ROOTCA_ORG}}
+          CN = {{.ISTIO_ROOTCA_CN}}
           EOF
       - cmd: |
           openssl genrsa -out root-key.pem 4096
@@ -47,7 +54,7 @@ tasks:
           -config root-ca.conf -out root-cert.csr
       - cmd: |
           openssl x509 -req -sha256 \
-          -days {{.ROOTCA_DAYS}} \
+          -days {{.ISTIO_ROOTCA_DAYS}} \
           -signkey root-key.pem \
           -extensions req_ext \
           -extfile root-ca.conf \
@@ -56,13 +63,6 @@ tasks:
 
   intermediate:
     desc: Generate intermediate CA for Istio
-    vars:
-      CLUSTER_NAME: cluster0
-      INTERMEDIATE_DAYS: 3650
-      INTERMEDIATE_KEYSZ: 4096
-      INTERMEDIATE_ORG: Istio
-      INTERMEDIATE_CN: Intermediate CA
-      INTERMEDIATE_SAN_DNS: istiod.istio-system.svc
     dir: {{.ISTIO_WORKDIR}}
     cmds:
       - cmd: mkdir -p {{.CLUSTER_NAME}}
@@ -73,7 +73,7 @@ tasks:
           prompt = no
           utf8 = yes
           default_md = sha256
-          default_bits = {{.INTERMEDIATE_KEYSZ}}
+          default_bits = {{.ISTIO_INTERMEDIATE_KEYSZ}}
           req_extensions = req_ext
           x509_extensions = req_ext
           distinguished_name = req_dn
@@ -85,11 +85,11 @@ tasks:
           subjectAltName=@san
 
           [ san ]
-          DNS.1 = {{.INTERMEDIATE_SAN_DNS}}
+          DNS.1 = {{.ISTIO_INTERMEDIATE_SAN_DNS}}
 
           [ req_dn ]
-          O = {{.INTERMEDIATE_ORG}}
-          CN = {{.INTERMEDIATE_CN}}
+          O = {{.ISTIO_INTERMEDIATE_ORG}}
+          CN = {{.ISTIO_INTERMEDIATE_CN}}
           L = {{.CLUSTER_NAME}}
           EOF
       - cmd: mkdir -p {{.CLUSTER_NAME}}
@@ -102,7 +102,7 @@ tasks:
           -out {{.CLUSTER_NAME}}/cluster-ca.csr
       - cmd: |
           openssl x509 -req -sha256 \
-          -days {{.INTERMEDIATE_DAYS}} \
+          -days {{.ISTIO_INTERMEDIATE_DAYS}} \
           -CA root-cert.pem \
           -CAkey root-key.pem \
           -CAcreateserial \
@@ -115,13 +115,6 @@ tasks:
 
   workload:
     desc: Generate workload certificates for Istio
-    vars:
-      CLUSTER_NAME: cluster0
-      INTERMEDIATE_KEYSZ: 4096
-      INTERMEDIATE_ORG: Istio
-      WORKLOAD_DAYS: 1
-      SERVICE_ACCOUNT: default
-      WORKLOAD_CN: Workload
     dir: {{.ISTIO_WORKDIR}}
     cmds:
       - cmd: mkdir -p {{.CLUSTER_NAME}}
@@ -132,7 +125,7 @@ tasks:
           prompt = no
           utf8 = yes
           default_md = sha256
-          default_bits = {{.INTERMEDIATE_KEYSZ}}
+          default_bits = {{.ISTIO_INTERMEDIATE_KEYSZ}}
           req_extensions = req_ext
           x509_extensions = req_ext
           distinguished_name = req_dn
@@ -145,11 +138,11 @@ tasks:
           subjectAltName=@san
 
           [ san ]
-          URI.1 = spiffe://cluster.local/ns/${{.CLUSTER_NAME}}sa/{{.SERVICE_ACCOUNT}}
+          URI.1 = spiffe://cluster.local/ns/${{.CLUSTER_NAME}}sa/{{.ISTIO_SERVICE_ACCOUNT}}
 
           [ req_dn ]
-          O = {{.INTERMEDIATE_ORG}}
-          CN = {{.WORKLOAD_CN}}
+          O = {{.ISTIO_INTERMEDIATE_ORG}}
+          CN = {{.ISTIO_WORKLOAD_CN}}
           L = {{.CLUSTER_NAME}}
           EOF
       - cmd: mkdir -p {{.CLUSTER_NAME}}
@@ -162,7 +155,7 @@ tasks:
           -out {{.CLUSTER_NAME}}/workload.csr
       - cmd: |
           openssl x509 -req -sha256 \
-          -days {{.WORKLOAD_DAYS}} \
+          -days {{.ISTIO_WORKLOAD_DAYS}} \
           -CA {{.CLUSTER_NAME}}/ca-cert.pem \
           -CAkey {{.CLUSTER_NAME}}/ca-key.pem \
           -CAcreateserial \
