@@ -22,7 +22,7 @@ env:
   ISTIO_WORKLOAD_CN: Workload
 
 tasks:
-  rootca:
+  root-ca-cert:
     desc: Generate root CA for Istio
     dir: "{{.ISTIO_WORKDIR}}"
     cmds:
@@ -62,7 +62,7 @@ tasks:
           -in root-cert.csr \
           -out root-cert.pem
 
-  intermediate:
+  intermediate-ca-cert:
     desc: Generate intermediate CA for Istio
     dir: "{{.ISTIO_WORKDIR}}"
     cmds:
@@ -167,7 +167,27 @@ tasks:
           cat {{.CLUSTER_NAME}}/ca-cert.pem > {{.CLUSTER_NAME}}/cert-chain.pem
           cp root-cert.pem {{.CLUSTER_NAME}}/
 
-  deploy:istio:
+  namespace:
+    desc: Create Istio default namespace
+    cmds:
+      - cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: istio-system
+          EOF
+  
+  install:cli:
+    desc: Install Istio control CLI
+    cmds:
+      - cmd: |
+          curl -fsSL https://github.com/istio/istio/releases/download/{{.VERSION}}/istio-{{.VERSION}}-linux-amd64.tar.gz \
+          | tar xvzf - --strip-component=1 --directory=~/.local/{{.VERSION}} \
+          && ln -sf ~/.local/{{.VERSION}} ~/.local/bin/istioctl
+    status: tests -f ~/.local/bin/istioctl
+
+  deploy:k3s:
     desc: Install Istio
     summary: >
       Install Istio on K3S (see: https://istio.io/latest/docs/ambient/install/platform-prerequisites/#k3s)
@@ -175,11 +195,11 @@ tasks:
       VERSION: "{{.ISTIO_VERSION}}"
       PLATFORM: k3s
     cmds:
+      - task: root-ca-cert
+      - task: intermediate-ca-cert
+      - task: namespace
       - cmd: mkdir -p {{.ISTIO_WORKDIR}}
-      - cmd: |
-          curl -fsSL https://github.com/istio/istio/releases/download/{{.VERSION}}/istio-{{.VERSION}}-linux-amd64.tar.gz \
-          | tar xvzf - --strip-component=1 --directory={{.ISTIO_WORKDIR}} \
-          && mv {{.ISTIO_WORKDIR}}bin/istioctl {{.ISTIO_WORKDIR}}istioctl
+      
       - cmd: |
           cat <<EOF > {{.ISTIO_WORKDIR}}install-istio-config.yaml
           apiVersion: install.istio.io/v1alpha1
