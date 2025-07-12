@@ -274,6 +274,8 @@ tasks:
           cat <<EOF > {{.ISTIO_WORKDIR}}/install-istio-config.yaml
           apiVersion: install.istio.io/v1alpha1
           kind: IstioOperator
+          metadata:
+            name: control-plane
           spec:
             profile: minimal
             meshConfig:
@@ -293,6 +295,8 @@ tasks:
           cat <<EOF > {{.ISTIO_WORKDIR}}/global-ingress.yaml
           apiVersion: install.istio.io/v1alpha1
           kind: IstioOperator
+          metadata:
+            name: global-ingress
           spec:
             profile: empty
             components:
