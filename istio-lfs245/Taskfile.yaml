@@ -13,18 +13,165 @@ env:
   ISTIO_NAMESPACE: istio-system
   ISTIO_ROOTCA_DAYS: 3650
   ISTIO_ROOTCA_KEYSZ: 4096
-  ISTIO_ROOTCA_ORG: Istio
-  ISTIO_ROOTCA_CN: Root CA
+  ISTIO_ROOTCA_ORG: Acme LLC.
+  ISTIO_ROOTCA_CN: Acme LLC Root CA
   ISTIO_INTERMEDIATE_DAYS: 3650
   ISTIO_INTERMEDIATE_KEYSZ: 4096
-  ISTIO_INTERMEDIATE_ORG: Istio
-  ISTIO_INTERMEDIATE_CN: Intermediate CA
+  ISTIO_INTERMEDIATE_ORG: Acme LLC.
+  ISTIO_INTERMEDIATE_CN: Acme LLC Intermediate CA
   ISTIO_INTERMEDIATE_SAN_DNS: istiod.istio-system.svc
   ISTIO_WORKLOAD_DAYS: 1
   ISTIO_SERVICE_ACCOUNT: default
   ISTIO_WORKLOAD_CN: Workload
 
 tasks:
+  root-ca-cert:
+    desc: Generate root CA for Istio
+    dir: "{{.ISTIO_WORKDIR}}"
+    cmds:
+      - cmd: |
+          cat <<EOF > root-ca.conf
+          [ req ]
+          encrypt_key = no
+          prompt = no
+          utf8 = yes
+          default_md = sha256
+          default_bits = {{.ISTIO_ROOTCA_KEYSZ}}
+          req_extensions = req_ext
+          x509_extensions = req_ext
+          distinguished_name = req_dn
+
+          [ req_ext ]
+          subjectKeyIdentifier = hash
+          basicConstraints = critical, CA:true
+          keyUsage = critical, digitalSignature, nonRepudiation, keyEncipherment, keyCertSign
+
+          [ req_dn ]
+          O = {{.ISTIO_ROOTCA_ORG}}
+          CN = {{.ISTIO_ROOTCA_CN}}
+          EOF
+      - cmd: openssl genrsa -out root-key.pem 4096
+      - cmd: >
+          openssl req -sha256 -new
+          -key root-key.pem
+          -config root-ca.conf
+          -out root-cert.csr
+      - cmd: >
+          openssl x509 -req -sha256
+          -days {{.ISTIO_ROOTCA_DAYS}}
+          -signkey root-key.pem
+          -extensions req_ext
+          -extfile root-ca.conf
+          -in root-cert.csr
+          -out root-cert.pem
+    status:
+      - test -f root-ca.conf
+      - test -f root-key.pem
+      - test -f root-cert.csr
+      - test -f root-cert.pem
+
+  intermediate-ca-cert:
+    desc: Generate intermediate CA for Istio
+    dir: "{{.ISTIO_WORKDIR}}"
+    cmds:
+      - cmd: mkdir -p {{.CLUSTER_NAME}}
+      - cmd: |
+          cat <<EOF > {{.CLUSTER_NAME}}/intermediate.conf
+          [ req ]
+          encrypt_key = no
+          prompt = no
+          utf8 = yes
+          default_md = sha256
+          default_bits = {{.ISTIO_INTERMEDIATE_KEYSZ}}
+          req_extensions = req_ext
+          x509_extensions = req_ext
+          distinguished_name = req_dn
+
+          [ req_ext ]
+          subjectKeyIdentifier = hash
+          basicConstraints = critical, CA:true, pathlen:0
+          keyUsage = critical, digitalSignature, nonRepudiation, keyEncipherment, keyCertSign
+          subjectAltName=@san
+
+          [ san ]
+          DNS.1 = {{.ISTIO_INTERMEDIATE_SAN_DNS}}
+
+          [ req_dn ]
+          O = {{.ISTIO_INTERMEDIATE_ORG}}
+          CN = {{.ISTIO_INTERMEDIATE_CN}}
+          L = {{.CLUSTER_NAME}}
+          EOF
+      - cmd: openssl genrsa -out {{.CLUSTER_NAME}}/ca-key.pem 4096
+      - cmd: >
+          openssl req -sha256 -new
+          -key {{.CLUSTER_NAME}}/ca-key.pem
+          -config {{.CLUSTER_NAME}}/intermediate.conf
+          -out {{.CLUSTER_NAME}}/cluster-ca.csr
+      - cmd: >
+          openssl x509 -req -sha256
+          -days {{.ISTIO_INTERMEDIATE_DAYS}}
+          -CA root-cert.pem
+          -CAkey root-key.pem
+          -CAcreateserial
+          -extensions req_ext
+          -extfile {{.CLUSTER_NAME}}/intermediate.conf
+          -in {{.CLUSTER_NAME}}/cluster-ca.csr
+          -out {{.CLUSTER_NAME}}/ca-cert.pem
+      - cmd: cat {{.CLUSTER_NAME}}/ca-cert.pem > {{.CLUSTER_NAME}}/cert-chain.pem
+      - cmd: cp root-cert.pem {{.CLUSTER_NAME}}/
+    status:
+      - test -f {{.CLUSTER_NAME}}/ca-key.pem
+      - test -f {{.CLUSTER_NAME}}/intermediate.conf
+      - test -f {{.CLUSTER_NAME}}/cluster-ca.csr
+      - test -f {{.CLUSTER_NAME}}/ca-cert.pem
+      - test -f {{.CLUSTER_NAME}}/cert-chain.pem
+      - test -f {{.CLUSTER_NAME}}/root-cert.pem
+
+  namespace:
+    desc: Create Istio default namespace
+    cmds:
+      - cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: istio-system
+          EOF
+    status:
+      - kubectl get ns istio-system
+  
+  install:istioctl:
+    desc: Install Istio control CLI
+    run: when_changed
+    cmds:
+      - cmd: |
+          mkdir -vp ${HOME}/.local/istio/{{.ISTIO_VERSION}} \
+          && curl -fsSL https://github.com/istio/istio/releases/download/{{.ISTIO_VERSION}}/istioctl-{{.ISTIO_VERSION}}-linux-amd64.tar.gz \
+          | tar xvzf - --strip-component=1 --directory=${HOME}/.local/istio/{{.ISTIO_VERSION}} \
+          && ln -sf ${HOME}/.local/istio/{{.ISTIO_VERSION}}/istioctl ${HOME}/.local/bin/istioctl
+    status:
+      - test -f ~/.local/bin/istioctl
+      - istioctl version
+
+  deploy:certs:
+    desc: Deploy 
+    summary: >
+      Provision Istio namespace and secrets related to certificate authority (CA) with a root certificate, signing certificate and key.
+      (ref. https://istio.io/latest/docs/tasks/security/cert-management/plugin-ca-cert/)
+    dir: "{{.ISTIO_WORKDIR}}"
+    cmds:
+      - task: root-ca-cert
+      - task: intermediate-ca-cert
+      - task: namespace
+      - cmd: >
+          kubectl create secret generic cacerts -n istio-system
+          --from-file={{.CLUSTER_NAME}}/ca-cert.pem
+          --from-file={{.CLUSTER_NAME}}/ca-key.pem
+          --from-file={{.CLUSTER_NAME}}/root-cert.pem
+          --from-file={{.CLUSTER_NAME}}/cert-chain.pem
+    status:
+      - kubectl get secret cacerts -n istio-system
+
   lab2-1:k3s:
     desc: Istio Service Mesh Essentials (Lab 2.1)
     summary: >
@@ -34,8 +181,8 @@ tasks:
       VERSION: "{{.ISTIO_VERSION}}"
       PLATFORM: k3s
     cmds:
-      - task: istio:install:istioctl
-      - task: istio:deploy:certs
+      - task: install:istioctl
+      - task: deploy:certs
       - cmd: mkdir -p {{.ISTIO_WORKDIR}}
       - cmd: |
           cat <<EOF > {{.ISTIO_WORKDIR}}/install-istio-config.yaml
@@ -99,8 +246,8 @@ tasks:
       VERSION: "{{.ISTIO_VERSION}}"
       PLATFORM: k3s
     cmds:
-      - task: istio:install:istioctl
-      - task: istio:deploy:certs
+      - task: install:istioctl
+      - task: deploy:certs
       - cmd: mkdir -p {{.ISTIO_WORKDIR}}
       - cmd: |
           cat <<EOF > {{.ISTIO_WORKDIR}}/install-istio-config.yaml
