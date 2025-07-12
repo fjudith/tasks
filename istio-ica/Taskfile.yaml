@@ -191,6 +191,23 @@ tasks:
       - test -f ~/.local/bin/istioctl
       - istioctl version
 
+  deploy:certs:
+    desc: Deploy 
+    summary: >
+      Provision Istio namespace and secrets related to certificate authority (CA) with a root certificate, signing certificate and key.
+      (ref. https://istio.io/latest/docs/tasks/security/cert-management/plugin-ca-cert/)
+    dir: "{{.ISTIO_WORKDIR}}"
+    cmds:
+      - task: root-ca-cert
+      - task: intermediate-ca-cert
+      - task: namespace
+      - cmd: |
+          kubectl create secret generic cacerts -n istio-system \
+            --from-file={{.CLUSTER_NAME}}/ca-cert.pem \
+            --from-file={{.CLUSTER_NAME}}/ca-key.pem \
+            --from-file={{.CLUSTER_NAME}}/root-cert.pem \
+            --from-file={{.CLUSTER_NAME}}/cert-chain.pem
+
   deploy:k3s:
     desc: Install Istio
     summary: >
@@ -199,10 +216,8 @@ tasks:
       VERSION: "{{.ISTIO_VERSION}}"
       PLATFORM: k3s
     cmds:
-      - task: root-ca-cert
-      - task: intermediate-ca-cert
-      - task: namespace
       - task: install:istioctl
+      - task: deploy:certs
       - cmd: mkdir -p {{.ISTIO_WORKDIR}}
       - cmd: |
           cat <<EOF > {{.ISTIO_WORKDIR}}/install-istio-config.yaml
