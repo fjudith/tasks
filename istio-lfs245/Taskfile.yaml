@@ -268,3 +268,25 @@ tasks:
           -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml
       - cmd: kubectl label namespace default istio-injection=enabled
       - cmd: kubectl apply -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
+      - cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: networking.istio.io/v1alpha3
+          kind: Gateway
+          metadata:
+            name: ingress-gateway
+          spec:
+            selector:
+              istio: ingressgateway
+            servers:
+              - port:
+                  number: 80
+                  name: http
+                  protocol: HTTP
+                hosts:
+                  - "httpbin.com"
+          EOF
+      - cmd: >
+          export INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -v -H "Host: httpbin.com" $INGRESS_IP
+      - cmd: kubectl -n istio-system logs deploy/istio-ingressgateway
+        ignore_error: true
