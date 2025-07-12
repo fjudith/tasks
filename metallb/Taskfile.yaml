@@ -4,7 +4,7 @@ tasks:
   deploy:localhost:
     desc: Deploy Metallb loadbalancer service manager
     summary: >
-      Provision MetalLB with an address pool allocated to the internet routable IP address
+      Provision MetalLB with an address pool allocated to the local internet routable network adapter
     vars:
       IP_ADDRESS:
         sh: ip route get '1.1.1.1' | grep -oP 'src \K[^ ]+'
