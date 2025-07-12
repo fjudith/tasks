@@ -178,14 +178,15 @@ tasks:
             name: istio-system
           EOF
   
-  install:cli:
+  install:istioctl:
     desc: Install Istio control CLI
     cmds:
       - cmd: |
           curl -fsSL https://github.com/istio/istio/releases/download/{{.VERSION}}/istioctl-{{.VERSION}}-linux-amd64.tar.gz \
           | tar xvzf - --strip-component=1 --directory=~/.local/{{.VERSION}} \
           && ln -sf ~/.local/{{.VERSION}}/istioctl ~/.local/bin/istioctl
-    status: tests -f ~/.local/bin/istioctl
+    status:
+      - test -f ~/.local/bin/istioctl
 
   deploy:k3s:
     desc: Install Istio
