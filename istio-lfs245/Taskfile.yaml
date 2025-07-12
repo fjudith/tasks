@@ -2,8 +2,8 @@
 
 version: 3
 
-includes:
-  istio: https://github.com/fjudith/tasks.git//istio/Taskfile.yaml?ref=main
+# includes:
+#   istio: https://github.com/fjudith/tasks.git//istio/Taskfile.yaml?ref=main
 
 env:
   CLUSTER_NAME: default
