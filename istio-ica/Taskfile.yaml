@@ -281,18 +281,32 @@ tasks:
                 mode: REGISTRY_ONLY
               trustDomain: acmellc.local
           EOF
-      - cmd: |
-          istioctl install --verify --skip-confirmation \
-          --set values.global.platform={{.PLATFORM}} \
-          -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml \
-          -n istio-system \
-          --revision=prod
+      - cmd: >
+          istioctl install --verify --skip-confirmation
+          --set values.global.platform {{.PLATFORM}}
+          --filename {{.ISTIO_WORKDIR}}/install-istio-config.yaml
+          --namespace istio-system
+          --revision prod
       - cmd: kubectl label namespace default istio.io/rev=prod
       - cmd: kubectl apply -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
-    status:
-      - kubectl -n istio-system get deployment -l "istio.io/rev=prod"
-      - kubectl get namespace -l istio.io/rev=prod
-      - kubectl -n default get deployment httpbin
+      - cmd: |
+          cat <<EOF > {{.ISTIO_WORKDIR}}/global-ingress.yaml
+          apiVersion: install.istio.io/v1alpha1
+          kind: IstioOperator
+          spec:
+            profile: empty
+            components:
+              ingressGateways:
+                - name: global-ingress
+                  enabled: true
+                  namespace: istio-system
+                  labels:
+                    ingress: global
+          EOF
+      - cmd: >
+          istioctl install --skip-confirmation
+          --filename {{.ISTIO_WORKDIR}}/global-ingress.yaml
+          --revision prod
   
   test:k3s:minimal:
     desc: Check Istio minimal deployment in k3s
@@ -304,4 +318,4 @@ tasks:
           | base64 --decode > chain.pem
       - cmd: |
           openssl x509 -noout -text -in chain.pem \
-          grep -E '{{.CLUSTER_NAME}}'
+          grep -niE '{{.CLUSTER_NAME}}|acmellc\.local|'
