@@ -310,3 +310,4 @@ tasks:
       - cmd: >
           INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           curl -v -H "Host: httpbin.com" $INGRESS_IP
+      - cmd: kubectl get vs
