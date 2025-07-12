@@ -4,7 +4,7 @@ version: 3
 
 includes:
   istio:
-    taskfile: https://github.com/fjudith/tasks.git//istio/Taskfile.yaml
+    taskfile: https://raw.githubusercontent.com/fjudith/tasks/refs/heads/main/istio/Taskfile.yaml
     flatten: true
 
 env:
