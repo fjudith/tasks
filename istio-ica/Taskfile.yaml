@@ -202,6 +202,7 @@ tasks:
       - task: root-ca-cert
       - task: intermediate-ca-cert
       - task: namespace
+      - task: install:istioctl
       - cmd: mkdir -p {{.ISTIO_WORKDIR}}
       - cmd: |
           cat <<EOF > {{.ISTIO_WORKDIR}}/install-istio-config.yaml
