@@ -290,7 +290,7 @@ tasks:
           curl -v -H "Host: httpbin.com" $INGRESS_IP
       - cmd: kubectl -n istio-system logs deploy/istio-ingressgateway
       - cmd: |
-          cat <<EOF > kubectl apply -f -
+          cat <<EOF | kubectl apply -f -
           apiVersion: networking.istio.io/v1beta1
           kind: VirtualService
           metadata:
