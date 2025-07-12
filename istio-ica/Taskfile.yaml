@@ -236,3 +236,41 @@ tasks:
           istioctl install --verify --skip-confirmation \
           --set values.global.platform={{.PLATFORM}} \
           -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml
+
+  deploy:k3s:minimal:
+    desc: Deploy Istio minimal profile
+    summary: >
+      Deploy Istio minimal profile with 
+      Install Istio on K3S (see: https://istio.io/latest/docs/ambient/install/platform-prerequisites/#k3s)
+
+      
+    vars:
+      VERSION: "{{.ISTIO_VERSION}}"
+      PLATFORM: k3s
+    cmds:
+      - task: install:istioctl
+      - task: deploy:certs
+      - cmd: mkdir -p {{.ISTIO_WORKDIR}}
+      - cmd: |
+          cat <<EOF > {{.ISTIO_WORKDIR}}/install-istio-config.yaml
+          apiVersion: install.istio.io/v1alpha1
+          kind: IstioOperator
+          spec:
+            profile: minimal
+            meshConfig:
+              outboundTrafficPolicy:
+                mode: REGISTRY_ONLY
+              trustDomain: acmellc.local
+            components:
+              ingressGateways:
+                - name: istio-ingressgateway
+                  k8s:
+                    serviceAnnotations:
+                      metallb.universe.tf/allow-shared-ip: edge-endpoint
+          EOF
+      - cmd: |
+          istioctl install --verify --skip-confirmation \
+          --set values.global.platform={{.PLATFORM}} \
+          -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml \
+          -n istio-system \
+          --revision=prod
