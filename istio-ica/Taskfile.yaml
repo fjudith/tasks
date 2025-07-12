@@ -47,20 +47,25 @@ tasks:
           O = {{.ISTIO_ROOTCA_ORG}}
           CN = {{.ISTIO_ROOTCA_CN}}
           EOF
-      - cmd: |
-          openssl genrsa -out root-key.pem 4096
-      - cmd: |
-          openssl req -sha256 -new \
-          -key root-key.pem \
-          -config root-ca.conf -out root-cert.csr
-      - cmd: |
-          openssl x509 -req -sha256 \
-          -days {{.ISTIO_ROOTCA_DAYS}} \
-          -signkey root-key.pem \
-          -extensions req_ext \
-          -extfile root-ca.conf \
-          -in root-cert.csr \
+      - cmd: openssl genrsa -out root-key.pem 4096
+      - cmd: >
+          openssl req -sha256 -new
+          -key root-key.pem
+          -config root-ca.conf
+          -out root-cert.csr
+      - cmd: >
+          openssl x509 -req -sha256
+          -days {{.ISTIO_ROOTCA_DAYS}}
+          -signkey root-key.pem
+          -extensions req_ext
+          -extfile root-ca.conf
+          -in root-cert.csr
           -out root-cert.pem
+    status:
+      - test -f root-ca.conf
+      - test -f root-key.pem
+      - test -f root-cert.csr
+      - test -f root-cert.pem
 
   intermediate-ca-cert:
     desc: Generate intermediate CA for Istio
@@ -93,26 +98,31 @@ tasks:
           CN = {{.ISTIO_INTERMEDIATE_CN}}
           L = {{.CLUSTER_NAME}}
           EOF
-      - cmd: mkdir -p {{.CLUSTER_NAME}}
-      - cmd: |
-          openssl genrsa -out {{.CLUSTER_NAME}}/ca-key.pem 4096
-      - cmd: |
-          openssl req -sha256 -new \
-          -key {{.CLUSTER_NAME}}/ca-key.pem \
-          -config {{.CLUSTER_NAME}}/intermediate.conf \
+      - cmd: openssl genrsa -out {{.CLUSTER_NAME}}/ca-key.pem 4096
+      - cmd: >
+          openssl req -sha256 -new
+          -key {{.CLUSTER_NAME}}/ca-key.pem
+          -config {{.CLUSTER_NAME}}/intermediate.conf
           -out {{.CLUSTER_NAME}}/cluster-ca.csr
-      - cmd: |
-          openssl x509 -req -sha256 \
-          -days {{.ISTIO_INTERMEDIATE_DAYS}} \
-          -CA root-cert.pem \
-          -CAkey root-key.pem \
-          -CAcreateserial \
-          -extensions req_ext \
-          -extfile {{.CLUSTER_NAME}}/intermediate.conf \
-          -in {{.CLUSTER_NAME}}/cluster-ca.csr -out {{.CLUSTER_NAME}}/ca-cert.pem
-      - cmd: |
-          cat {{.CLUSTER_NAME}}/ca-cert.pem > {{.CLUSTER_NAME}}/cert-chain.pem
-          cp root-cert.pem {{.CLUSTER_NAME}}/
+      - cmd: >
+          openssl x509 -req -sha256
+          -days {{.ISTIO_INTERMEDIATE_DAYS}}
+          -CA root-cert.pem
+          -CAkey root-key.pem
+          -CAcreateserial
+          -extensions req_ext
+          -extfile {{.CLUSTER_NAME}}/intermediate.conf
+          -in {{.CLUSTER_NAME}}/cluster-ca.csr
+          -out {{.CLUSTER_NAME}}/ca-cert.pem
+      - cmd: cat {{.CLUSTER_NAME}}/ca-cert.pem > {{.CLUSTER_NAME}}/cert-chain.pem
+      - cmd: cp root-cert.pem {{.CLUSTER_NAME}}/
+    status:
+      - test -f {{.CLUSTER_NAME}}/ca-key.pem
+      - test -f {{.CLUSTER_NAME}}/intermediate.conf
+      - test -f {{.CLUSTER_NAME}}/cluster-ca.csr
+      - test -f {{.CLUSTER_NAME}}/ca-cert.pem
+      - test -f {{.CLUSTER_NAME}}/cert-chain.pem
+      - test -f {{.CLUSTER_NAME}}/root-cert.pem
 
   workload:
     desc: Generate workload certificates for Istio
@@ -146,26 +156,31 @@ tasks:
           CN = {{.ISTIO_WORKLOAD_CN}}
           L = {{.CLUSTER_NAME}}
           EOF
-      - cmd: mkdir -p {{.CLUSTER_NAME}}
-      - cmd: |
-          openssl genrsa -out {{.CLUSTER_NAME}}/key.pem 4096
-      - cmd: |
-          openssl req -sha256 -new \
-          -key {{.CLUSTER_NAME}}/ca-key.pem \
-          -config {{.CLUSTER_NAME}}/workload.conf \
+      - cmd: openssl genrsa -out {{.CLUSTER_NAME}}/key.pem 4096
+      - cmd: >
+          openssl req -sha256 -new
+          -key {{.CLUSTER_NAME}}/key.pem
+          -config {{.CLUSTER_NAME}}/workload.conf
           -out {{.CLUSTER_NAME}}/workload.csr
-      - cmd: |
-          openssl x509 -req -sha256 \
-          -days {{.ISTIO_WORKLOAD_DAYS}} \
-          -CA {{.CLUSTER_NAME}}/ca-cert.pem \
-          -CAkey {{.CLUSTER_NAME}}/ca-key.pem \
-          -CAcreateserial \
-          -extensions req_ext \
-          -extfile {{.CLUSTER_NAME}}/workload.conf \
-          -in {{.CLUSTER_NAME}}/workload.csr -out {{.CLUSTER_NAME}}/workload-cert.pem
-      - cmd: |
-          cat {{.CLUSTER_NAME}}/ca-cert.pem > {{.CLUSTER_NAME}}/cert-chain.pem
-          cp root-cert.pem {{.CLUSTER_NAME}}/
+      - cmd: >
+          openssl x509 -req -sha256
+          -days {{.ISTIO_WORKLOAD_DAYS}}
+          -CA {{.CLUSTER_NAME}}/ca-cert.pem
+          -CAkey {{.CLUSTER_NAME}}/ca-key.pem
+          -CAcreateserial
+          -extensions req_ext
+          -extfile {{.CLUSTER_NAME}}/workload.conf
+          -in {{.CLUSTER_NAME}}/workload.csr
+          -out {{.CLUSTER_NAME}}/workload-cert.pem
+      - cmd: cat {{.CLUSTER_NAME}}/ca-cert.pem > {{.CLUSTER_NAME}}/cert-chain.pem
+      - cmd: cp root-cert.pem {{.CLUSTER_NAME}}/
+    status:
+      - test -f {{.CLUSTER_NAME}}/key.pem
+      - test -f {{.CLUSTER_NAME}}/workload.conf
+      - test -f {{.CLUSTER_NAME}}/workload.csr
+      - test -f {{.CLUSTER_NAME}}/workload-cert.pem
+      - test -f {{.CLUSTER_NAME}}/cert-chain.pem
+      - test -f {{.CLUSTER_NAME}}/root-cert.pem
 
   namespace:
     desc: Create Istio default namespace
@@ -177,6 +192,8 @@ tasks:
           metadata:
             name: istio-system
           EOF
+    status:
+      - kubectl get ns istio-system
   
   install:istioctl:
     desc: Install Istio control CLI
@@ -201,12 +218,14 @@ tasks:
       - task: root-ca-cert
       - task: intermediate-ca-cert
       - task: namespace
-      - cmd: |
-          kubectl create secret generic cacerts -n istio-system \
-            --from-file={{.CLUSTER_NAME}}/ca-cert.pem \
-            --from-file={{.CLUSTER_NAME}}/ca-key.pem \
-            --from-file={{.CLUSTER_NAME}}/root-cert.pem \
-            --from-file={{.CLUSTER_NAME}}/cert-chain.pem
+      - cmd: >
+          kubectl create secret generic cacerts -n istio-system
+          --from-file={{.CLUSTER_NAME}}/ca-cert.pem
+          --from-file={{.CLUSTER_NAME}}/ca-key.pem
+          --from-file={{.CLUSTER_NAME}}/root-cert.pem
+          --from-file={{.CLUSTER_NAME}}/cert-chain.pem
+    status:
+      - kubectl get secret cacerts -n istio-system
 
   deploy:k3s:
     desc: Install Istio
@@ -268,3 +287,5 @@ tasks:
           -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml \
           -n istio-system \
           --revision=prod
+      - cmd: kubectl label namespace default istio.io/rev=prod
+      - cmd: kubectl apply -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
