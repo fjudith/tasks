@@ -300,7 +300,7 @@ tasks:
                 - name: global-ingress
                   enabled: true
                   namespace: istio-system
-                  labels:
+                  label:
                     ingress: global
           EOF
       - cmd: >
