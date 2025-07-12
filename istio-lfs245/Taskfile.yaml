@@ -27,7 +27,7 @@ env:
   ISTIO_WORKLOAD_CN: Workload
 
 tasks:
-  lfs245:lab2-1:k3s:
+  lab2-1:k3s:
     desc: Istio Service Mesh Essentials (Lab 2.1)
     summary: >
       Deploy Istio minimal profile with a complementary Ingress Gateway and sample a example workfload
@@ -81,7 +81,7 @@ tasks:
           --filename="{{.ISTIO_WORKDIR}}/global-ingress.yaml"
           --revision="prod"
   
-  lfs245:lab2-1:test:
+  lab2-1:test:
     desc: Check Istio minimal deployment in k3s
     dir: "{{.ISTIO_WORKDIR}}"
     cmds:
@@ -93,7 +93,7 @@ tasks:
           openssl x509 -noout -text -in chain.pem \
           grep -niE '{{.CLUSTER_NAME}}|acmellc\.local|'
 
-  lfs245:lab3-1:k3s:
+  lab3-1:k3s:
     desc: //TODO
     summary: //TODO
     dir: "{{.ISTIO_WORKDIR}}"
