@@ -172,7 +172,7 @@ tasks:
     status:
       - kubectl get secret cacerts -n istio-system
 
-  lab2-1:k3s:
+  lab3-1:k3s:
     desc: Istio Service Mesh Essentials (Lab 2.1)
     summary: >
       Deploy Istio minimal profile with a complementary Ingress Gateway and sample a example workfload
@@ -226,7 +226,7 @@ tasks:
           --filename="{{.ISTIO_WORKDIR}}/global-ingress.yaml"
           --revision="prod"
   
-  lab2-1:test:
+  lab3-1:test:
     desc: Check Istio minimal deployment in k3s
     dir: "{{.ISTIO_WORKDIR}}"
     cmds:
@@ -238,7 +238,7 @@ tasks:
           openssl x509 -noout -text -in chain.pem \
           grep -niE '{{.CLUSTER_NAME}}|acmellc\.local|'
 
-  lab3-1:k3s:
+  lab4-1:k3s:
     desc: //TODO
     summary: //TODO
     dir: "{{.ISTIO_WORKDIR}}"
