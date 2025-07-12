@@ -266,3 +266,5 @@ tasks:
           istioctl install --verify --skip-confirmation \
           --set values.global.platform={{.PLATFORM}} \
           -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml
+      - cmd: kubectl label namespace default istio-injection=enabled
+      - cmd: kubectl apply -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
