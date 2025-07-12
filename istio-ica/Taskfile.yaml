@@ -180,12 +180,13 @@ tasks:
   
   install:istioctl:
     desc: Install Istio control CLI
+    run: when_changed
     cmds:
       - cmd: |
           mkdir -vp ${HOME}/.local/istio/{{.ISTIO_VERSION}} \
           && curl -fsSL https://github.com/istio/istio/releases/download/{{.ISTIO_VERSION}}/istioctl-{{.ISTIO_VERSION}}-linux-amd64.tar.gz \
           | tar xvzf - --strip-component=1 --directory=${HOME}/.local/istio/{{.ISTIO_VERSION}} \
-          && ln -sf ${HOME}/.local/{{.ISTIO_VERSION}}/istioctl ${HOME}/.local/bin/istioctl
+          && ln -sf ${HOME}/.local/istio/{{.ISTIO_VERSION}}/istioctl ${HOME}/.local/bin/istioctl
     status:
       - test -f ~/.local/bin/istioctl
       - istioctl version
