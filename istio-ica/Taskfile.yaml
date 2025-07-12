@@ -293,3 +293,15 @@ tasks:
       - kubectl -n istio-system get deployment -l "istio.io/rev=prod"
       - kubectl get namespace -l istio.io/rev=prod
       - kubectl -n default get deployment httpbin
+  
+  test:k3s:minimal:
+    desc: Check Istio minimal deployment in k3s
+    dir: "{{.ISTIO_WORKDIR}}"
+    cmds:
+      - cmd: |
+          istioctl proxy-config -n default secret deployment/httpbin -o json \
+          | jq -r '.dynamicActiveSecrets[0].secret.tlsCertificate.certificateChain.inlineBytes' \
+          | base64 --decode > chain.pem
+      - cmd: |
+          openssl x509 -noout -text -in chain.pem \
+          grep -E '{{.CLUSTER_NAME}}'
