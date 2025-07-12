@@ -289,3 +289,7 @@ tasks:
           --revision=prod
       - cmd: kubectl label namespace default istio.io/rev=prod
       - cmd: kubectl apply -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
+    status:
+      - kubectl -n istio-system get deployment -l "istio.io/rev=prod"
+      - kubectl get namespace -l istio.io/rev=prod
+      - kubectl -n default get deployment httpbin
