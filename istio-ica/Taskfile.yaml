@@ -261,12 +261,6 @@ tasks:
               outboundTrafficPolicy:
                 mode: REGISTRY_ONLY
               trustDomain: acmellc.local
-            components:
-              ingressGateways:
-                - name: istio-ingressgateway
-                  k8s:
-                    serviceAnnotations:
-                      metallb.universe.tf/allow-shared-ip: edge-endpoint
           EOF
       - cmd: |
           istioctl install --verify --skip-confirmation \
