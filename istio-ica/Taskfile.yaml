@@ -182,9 +182,10 @@ tasks:
     desc: Install Istio control CLI
     cmds:
       - cmd: |
-          curl -fsSL https://github.com/istio/istio/releases/download/{{.ISTIO_VERSION}}/istioctl-{{.ISTIO_VERSION}}-linux-amd64.tar.gz \
-          | tar xvzf - --strip-component=1 --directory=~/.local/{{.ISTIO_VERSION}} \
-          && ln -sf ~/.local/{{.ISTIO_VERSION}}/istioctl ~/.local/bin/istioctl
+          mkdir -vp ${HOME}/.local/istio/{{.ISTIO_VERSION}} \
+          && curl -fsSL https://github.com/istio/istio/releases/download/{{.ISTIO_VERSION}}/istioctl-{{.ISTIO_VERSION}}-linux-amd64.tar.gz \
+          | tar xvzf - --strip-component=1 --directory=${HOME}/.local/istio/{{.ISTIO_VERSION}} \
+          && ln -sf ${HOME}/.local/{{.ISTIO_VERSION}}/istioctl ${HOME}/.local/bin/istioctl
     status:
       - test -f ~/.local/bin/istioctl
       - istioctl version
