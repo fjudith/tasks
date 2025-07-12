@@ -2,7 +2,10 @@
 
 version: 3
 
-include: https://github.com/fjudith/tasks.git//istio/Taskfile.yaml?ref=main
+includes:
+  istio:
+    taskfile: https://github.com/fjudith/tasks.git//istio/Taskfile.yaml?ref=main
+    flatten: true
 
 env:
   CLUSTER_NAME: default
