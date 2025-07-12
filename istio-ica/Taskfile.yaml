@@ -182,9 +182,9 @@ tasks:
     desc: Install Istio control CLI
     cmds:
       - cmd: |
-          curl -fsSL https://github.com/istio/istio/releases/download/{{.VERSION}}/istio-{{.VERSION}}-linux-amd64.tar.gz \
+          curl -fsSL https://github.com/istio/istio/releases/download/{{.VERSION}}/istioctl-{{.VERSION}}-linux-amd64.tar.gz \
           | tar xvzf - --strip-component=1 --directory=~/.local/{{.VERSION}} \
-          && ln -sf ~/.local/{{.VERSION}} ~/.local/bin/istioctl
+          && ln -sf ~/.local/{{.VERSION}}/istioctl ~/.local/bin/istioctl
     status: tests -f ~/.local/bin/istioctl
 
   deploy:k3s:
@@ -199,9 +199,8 @@ tasks:
       - task: intermediate-ca-cert
       - task: namespace
       - cmd: mkdir -p {{.ISTIO_WORKDIR}}
-      
       - cmd: |
-          cat <<EOF > {{.ISTIO_WORKDIR}}install-istio-config.yaml
+          cat <<EOF > {{.ISTIO_WORKDIR}}/install-istio-config.yaml
           apiVersion: install.istio.io/v1alpha1
           kind: IstioOperator
           spec:
@@ -214,6 +213,6 @@ tasks:
                       metallb.universe.tf/allow-shared-ip: edge-endpoint
           EOF
       - cmd: |
-          {{.ISTIO_WORKDIR}}istioctl install --verify --skip-confirmation \
+          istioctl install --verify --skip-confirmation \
           --set values.global.platform={{.PLATFORM}} \
-          -f {{.ISTIO_WORKDIR}}install-istio-config.yaml
+          -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml
