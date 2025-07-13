@@ -172,7 +172,7 @@ tasks:
     status:
       - kubectl get secret cacerts -n istio-system
 
-  lab3-1:k3s:
+  lab3:k3s:
     desc: Istio Service Mesh Essentials (Lab 3.1)
     summary: >
       Deploy Istio minimal profile with a complementary Ingress Gateway and sample a example workfload
@@ -226,7 +226,7 @@ tasks:
           --filename="{{.ISTIO_WORKDIR}}/global-ingress.yaml"
           --revision="prod"
   
-  lab3-1:test:
+  lab3:test:
     desc: Check Istio minimal deployment in k3s
     dir: "{{.ISTIO_WORKDIR}}"
     cmds:
@@ -238,8 +238,8 @@ tasks:
           openssl x509 -noout -text -in chain.pem \
           grep -niE '{{.CLUSTER_NAME}}|acmellc\.local|'
 
-  lab4-1:k3s:
-    desc: Istio Service Mesh Essentials (Lab 4.1)
+  lab4:k3s:
+    desc: Configuring the Ingress Gateway
     dir: "{{.ISTIO_WORKDIR}}"
     vars:
       VERSION: "{{.ISTIO_VERSION}}"
@@ -311,16 +311,27 @@ tasks:
           curl -v -H 'Host: httpbin.com' http://${INGRESS_IP}
       - cmd: kubectl get vs
     
-  lab5-1:k3s:
-    desc: Istio Service Mesh Essentials (Lab 5.1)
+  lab5:k3s:
+    desc: Matching and Routing Traffic Between Services
+    vars:
+      ISTIO_SAMPLES:
+        sh: echo ${HOME}/.local/istio/{{.ISTIO_VERSION}}/samples
     dir: "{{.ISTIO_WORKDIR}}"
     cmds:
-      - task: lab4-1:k3s
-      - cmd: |
-          cd ${HOME}/.local/istio/{{.ISTIO_VERSION}}/samples \
-          && helloworld/gen-helloworld.sh --version v1 | kubectl apply -f - \
-          && helloworld/gen-helloworld.sh --version v2 | kubectl apply -f - \
-          && kubectl apply -f sleep/sleep.yaml
+      - task: lab4:k3s
+      - cmd: "{{.ISTIO_SAMPLES}}/helloworld/gen-helloworld.sh --version v1 | kubectl apply -f -"
+      - cmd: "{{.ISTIO_SAMPLES}}/helloworld/gen-helloworld.sh --version v2 | kubectl apply -f -"
+      - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/sleep/sleep.yaml
+      - cmd: >
+          kubectl wait pod
+          --for=condition=Ready
+          -l 'app=helloworld'
+          --timeout=120s
+      - cmd: >
+          kubectl wait pod
+          --for=condition=Ready
+          -l 'app=sleep'
+          --timeout=120s
       - cmd: kubectl get pods
       - cmd: sleep 10s
       - for: [0, 1, 2, 3, 4, 5]
@@ -417,14 +428,19 @@ tasks:
           http://helloworld.default.svc.cluster.local:5000/v3
         ignore_error: true
 
-  lab6-1:k3s:
-    desc: Istio Service Mesh Essentials (Lab 6.1)
+  lab6:k3s:
+    desc: Configuring a Circuit Breaker
     dir: "{{.ISTIO_WORKDIR}}"
+    vars:
+      ISTIO_SAMPLES:
+        sh: echo ${HOME}/.local/istio/{{.ISTIO_VERSION}}/samples
     cmds:
-      - task: lab4-1:k3s
+      - task: lab4:k3s
       - cmd: kubectl delete vs helloworld-vs
         ignore_error: true
       - cmd: kubectl delete dr helloworld-dr
+        ignore_error: true
+      - cmd: kubectl delete dr fakeservice-dr
         ignore_error: true
       - cmd: |
           cat <<EOF | kubectl apply -f -
@@ -474,10 +490,12 @@ tasks:
                         name: grpc-ping
           EOF
         ignore_error: true
-      - cmd: |
-          cd ${HOME}/.local/istio/{{.ISTIO_VERSION}}/samples \
-          && helloworld/gen-helloworld.sh --version v1 | kubectl apply -f - \
-      - cmd: sleep 10s
+      - cmd: "{{.ISTIO_SAMPLES}}/helloworld/gen-helloworld.sh --version v1 | kubectl apply -f -"
+      - cmd: >
+          kubectl wait pod
+          --for=condition=Ready
+          -l app=helloworld
+          --timeout=120s
       - cmd: >
           kubectl exec deploy/fortio -c fortio --
           fortio load
@@ -563,6 +581,11 @@ tasks:
                 targetPort: 9090
           EOF
       - cmd: >
+          kubectl wait pod
+          --for=condition=Ready
+          -l 'app=fakeservice'
+          --timeout=120s
+      - cmd: >
           kubectl exec deploy/fortio -c fortio --
           fortio load
           -c 2 
@@ -608,3 +631,68 @@ tasks:
           kubectl exec deploy/fortio -c istio-proxy -- \
           curl localhost:15000/stats/prometheus \
           | grep 'outlier_detection_ejections_enforced_consecutive_5xx{cluster_name="outbound|80||fakeservice.default.svc.cluster.local"}'
+
+  lab7:k3s:
+    desc: Observing Traffic in Prometheus, Grafana, Jaeger, and Kiali
+    dir: "{{.ISTIO_WORKDIR}}"
+    vars:
+      ISTIO_SAMPLES:
+        sh: echo ${HOME}/.local/istio/{{.ISTIO_VERSION}}/samples
+    cmds:
+      - task: lab4:k3s
+      - cmd: kubectl delete vs helloworld-vs
+        ignore_error: true
+      - cmd: kubectl delete dr helloworld-dr
+        ignore_error: true
+      - cmd: kubectl delete dr fakeservice-dr
+        ignore_error: true
+      - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/bookinfo/platform/kube/bookinfo.yaml
+      - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/bookinfo/networking/bookinfo-gateway.yaml
+      - cmd: >
+          kubectl wait pod
+          --for=condition=Ready
+          -l 'app=reviews'
+          --timeout=120s
+      - for: [0, 1, 2, 3, 4, 5]
+        cmd: |
+          export GATEWAY_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}') \
+          && curl -s "http://${GATEWAY_IP}/productpage" | grep -o "<title>.*</title>"
+      - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/addons/prometheus.yaml
+      - cmd: >
+          kubectl wait pod
+          --for=condition=Ready
+          -n istio-system
+          -l 'app.kubernetes.io/name=prometheus'
+          --timeout=120s
+      - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/addons/grafana.yaml
+      - cmd: >
+          kubectl wait pod
+          --for=condition=Ready
+          -n istio-system
+          -l 'app.kubernetes.io/name=grafana'
+          --timeout=120s
+      - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/addons/jaeger.yaml
+      - cmd: >
+          kubectl wait pod
+          --for=condition=Ready
+          -n istio-system
+          -l 'app=jaeger'
+          --timeout=120s
+      - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/addons/kiali.yaml
+      - cmd: >
+          kubectl wait pod
+          --for=condition=Ready
+          -n istio-system
+          -l 'app.kubernetes.io/name=kiali'
+          --timeout=120s
+
+  lab6:test:
+    desc: Continuously send requests to the bookinfo service
+    dir: "{{.ISTIO_WORKDIR}}"
+    cmds:
+      - cmd: |
+          export GATEWAY_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}') \
+          && while true
+          do
+            curl "http://${GATEWAY_IP}/productpage" | grep -o "<title>.*</title>"
+          done
