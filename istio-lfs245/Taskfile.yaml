@@ -239,7 +239,7 @@ tasks:
           grep -niE '{{.CLUSTER_NAME}}|acmellc\.local|'
 
   lab4-1:k3s:
-    desc: desc: Istio Service Mesh Essentials (Lab 4.1)
+    desc: Istio Service Mesh Essentials (Lab 4.1)
     dir: "{{.ISTIO_WORKDIR}}"
     vars:
       VERSION: "{{.ISTIO_VERSION}}"
@@ -312,7 +312,7 @@ tasks:
       - cmd: kubectl get vs
     
   lab5-1:k3s:
-    desc: desc: Istio Service Mesh Essentials (Lab 5.1)
+    desc: Istio Service Mesh Essentials (Lab 5.1)
     dir: "{{ISTIO_WORKDIR}}"
     cmds:
       - task: lab4-1:k3s
