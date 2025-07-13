@@ -313,19 +313,20 @@ tasks:
     
   lab5-1:k3s:
     desc: Istio Service Mesh Essentials (Lab 5.1)
-    dir: "{{ISTIO_WORKDIR}}"
+    dir: "{{.ISTIO_WORKDIR}}"
     cmds:
       - task: lab4-1:k3s
       - cmd: |
           cd ${HOME}/.local/istio/{{.ISTIO_VERSION}}/samples \
-          && helloworld/gen-helloworld.sh --version 1 | kubectl apply -f - \
-          && helloworld/gen-helloworld.sh --version 2 | kubectl apply -f - \
+          && helloworld/gen-helloworld.sh --version v1 | kubectl apply -f - \
+          && helloworld/gen-helloworld.sh --version v2 | kubectl apply -f - \
           && kubectl apply -f sleep/sleep.yaml
       - cmd: kubectl get pods
+      - cmd: sleep 10s
       - for: [0, 1, 2, 3, 4, 5]
         cmd: > 
           kubectl exec -it deploy/sleep -- curl
-          http://helloworld.devault.svc.cluster.local:5000/hello
+          http://helloworld.default.svc.cluster.local:5000/hello
       - cmd: |
           cat <<EOF | kubectl apply -f -
           apiVersion: networking.istio.io/v1beta1
@@ -334,7 +335,7 @@ tasks:
             name: helloworld-dr
           spec:
             host: helloworld.default.svc.cluster.local
-            subnets:
+            subsets:
               - name: version-one
                 labels:
                   version: v1
@@ -369,5 +370,5 @@ tasks:
       - for: [0, 1, 2, 3, 4, 5]
         cmd: > 
           kubectl exec -it deploy/sleep -- curl
-          http://helloworld.devault.svc.cluster.local:5000/hello
+          http://helloworld.default.svc.cluster.local:5000/hello
       
