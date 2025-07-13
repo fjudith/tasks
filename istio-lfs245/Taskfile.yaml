@@ -284,9 +284,9 @@ tasks:
                 hosts:
                   - "httpbin.com"
           EOF
-      - cmd: >
-          INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          curl -v -H "Host: httpbin.com" $INGRESS_IP
+      - cmd: |
+          export INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -v -H 'Host: httpbin.com' http://${INGRESS_IP}
       - cmd: kubectl -n istio-system logs deploy/istio-ingressgateway
       - cmd: |
           cat <<EOF | kubectl apply -f -
@@ -306,9 +306,9 @@ tasks:
                       port:
                         number: 8000
           EOF
-      - cmd: >
-          INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          curl -v -H "Host: httpbin.com" $INGRESS_IP
+      - cmd: |
+          export INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -v -H 'Host: httpbin.com' http://${INGRESS_IP}
       - cmd: kubectl get vs
     
   lab5-1:k3s:
@@ -416,3 +416,195 @@ tasks:
           kubectl exec -it deploy/sleep -- curl -v
           http://helloworld.default.svc.cluster.local:5000/v3
         ignore_error: true
+
+  lab6-1:k3s:
+    desc: Istio Service Mesh Essentials (Lab 6.1)
+    dir: "{{.ISTIO_WORKDIR}}"
+    cmds:
+      - task: lab4-1:k3s
+      - cmd: kubectl delete vs helloworld-vs
+        ignore_error: true
+      - cmd: kubectl delete dr helloworld-dr
+        ignore_error: true
+      - cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: fortio
+            labels:
+              app: fortio
+              service: fortio
+          spec:
+            ports:
+              - port: 8080
+                name: http
+            selector:
+              app: fortio
+          ---
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: fortio
+          spec:
+            selector:
+              matchLabels:
+                app: fortio
+            template:
+              metadata:
+                annotations:
+                  proxy.istio.io/config: |-
+                    proxyStatsMatcher:
+                      inclusionPrefixes:
+                        - "cluster.outbound"
+                      inclusionRegexps:
+                        - ".*outlier_detection.*"
+                        - ".*circuit_breakers.*"
+                labels:
+                  app: fortio
+              spec:
+                containers:
+                  - name: fortio
+                    image: fortio/fortio:latest
+                    imagePullPolicy: Always
+                    ports:
+                      - containerPort: 8080
+                        name: http-fortio
+                      - containerPort: 8079
+                        name: grpc-ping
+          EOF
+        ignore_error: true
+      - cmd: |
+          cd ${HOME}/.local/istio/{{.ISTIO_VERSION}}/samples \
+          && helloworld/gen-helloworld.sh --version v1 | kubectl apply -f - \
+      - cmd: sleep 10s
+      - cmd: >
+          kubectl exec deploy/fortio -c fortio --
+          fortio load
+          -c 2 
+          -qps 0
+          -n 100
+          -quiet
+          helloworld:5000/hello
+      # Circuit breaker configuration
+      - cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: networking.istio.io/v1alpha3
+          kind: DestinationRule
+          metadata:
+            name: helloworld-dr
+          spec:
+            host: helloworld.default.svc.cluster.local
+            trafficPolicy:
+              connectionPool:
+                http:
+                  http1MaxPendingRequests: 1
+                  http2MaxRequests: 1
+                  maxRequestsPerConnection: 1
+          EOF
+      - cmd: >
+          kubectl exec deploy/fortio -c istio-proxy --
+          curl -X POST localhost:15000/reset_counters
+      - cmd: >
+          kubectl exec deploy/fortio -c fortio --
+          fortio load
+          -c 2 
+          -qps 0
+          -n 100
+          -quiet
+          helloworld:5000/hello
+      - cmd: |
+          kubectl exec deploy/fortio -c istio-proxy -- \
+          curl localhost:15000/stats/prometheus \
+          | grep 'envoy_cluster_upstream_rq_pending_overflow{cluster_name="outbound|5000||helloworld.default.svc.cluster.local"}'
+      # Outlier detection
+      - cmd: >
+          kubectl exec deploy/fortio -c istio-proxy --
+          curl -X POST localhost:15000/reset_counters
+      - cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: fakeservice
+            labels:
+              app: fakeservice
+          spec:
+            replicas: 3
+            selector:
+              matchLabels:
+                app: fakeservice
+            template:
+              metadata:
+                labels:
+                  app: fakeservice
+              spec:
+                containers:
+                  - name: service
+                    image: nicholasjackson/fake-service:v0.26.2
+                    ports:
+                      - containerPort: 9090
+                    env:
+                      - name: ERROR_RATE
+                        # 50% of the responses will be failures
+                        value: "0.5"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: fakeservice
+          spec:
+            selector:
+              app: fakeservice
+            ports:
+              - name: http
+                protocol: TCP
+                port: 80
+                targetPort: 9090
+          EOF
+      - cmd: >
+          kubectl exec deploy/fortio -c fortio --
+          fortio load
+          -c 2 
+          -qps 0
+          -n 100
+          -quiet
+          http://fakeservice
+      - cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: networking.istio.io/v1alpha3
+          kind: DestinationRule
+          metadata:
+            name: fakeservice-dr
+          spec:
+            host: fakeservice.default.svc.cluster.local
+            trafficPolicy:
+              outlierDetection:
+                baseEjectionTime: 3m
+                consecutive5xxErrors: 1
+                interval: 5s
+                maxEjectionPercent: 100
+          EOF
+      - for: [0, 1, 2, 3, 4, 5]
+        cmd: >
+          kubectl exec deploy/fortio -c fortio --
+          fortio load
+          -c 2 
+          -qps 0
+          -n 100
+          -quiet
+          http://fakeservice
+      - cmd: sleep 185s
+      - for: [0, 1, 2, 3, 4, 5]
+        cmd: >
+          kubectl exec deploy/fortio -c fortio --
+          fortio load
+          -c 2 
+          -qps 0
+          -n 100
+          -quiet
+          http://fakeservice
+      - cmd: |
+          kubectl exec deploy/fortio -c istio-proxy -- \
+          curl localhost:15000/stats/prometheus \
+          | grep 'outlier_detection_ejections_enforced_consecutive_5xx{cluster_name="outbound|80||fakeservice.default.svc.cluster.local"}'
