@@ -146,9 +146,9 @@ tasks:
     cmds:
       - cmd: |
           mkdir -vp ${HOME}/.local/istio/{{.ISTIO_VERSION}} \
-          && curl -fsSL https://github.com/istio/istio/releases/download/{{.ISTIO_VERSION}}/istioctl-{{.ISTIO_VERSION}}-linux-amd64.tar.gz \
+          && curl -fsSL https://github.com/istio/istio/releases/download/{{.ISTIO_VERSION}}/istio-{{.ISTIO_VERSION}}-linux-amd64.tar.gz \
           | tar xvzf - --strip-component=1 --directory=${HOME}/.local/istio/{{.ISTIO_VERSION}} \
-          && ln -sf ${HOME}/.local/istio/{{.ISTIO_VERSION}}/istioctl ${HOME}/.local/bin/istioctl
+          && ln -sf ${HOME}/.local/istio/{{.ISTIO_VERSION}}/bin/istioctl ${HOME}/.local/bin/istioctl
     status:
       - test -f ~/.local/bin/istioctl
       - istioctl version
@@ -173,7 +173,7 @@ tasks:
       - kubectl get secret cacerts -n istio-system
 
   lab3-1:k3s:
-    desc: Istio Service Mesh Essentials (Lab 2.1)
+    desc: Istio Service Mesh Essentials (Lab 3.1)
     summary: >
       Deploy Istio minimal profile with a complementary Ingress Gateway and sample a example workfload
       Install Istio on K3S (see: https://istio.io/latest/docs/ambient/install/platform-prerequisites/#k3s)
@@ -239,8 +239,7 @@ tasks:
           grep -niE '{{.CLUSTER_NAME}}|acmellc\.local|'
 
   lab4-1:k3s:
-    desc: //TODO
-    summary: //TODO
+    desc: desc: Istio Service Mesh Essentials (Lab 4.1)
     dir: "{{.ISTIO_WORKDIR}}"
     vars:
       VERSION: "{{.ISTIO_VERSION}}"
@@ -311,3 +310,9 @@ tasks:
           INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           curl -v -H "Host: httpbin.com" $INGRESS_IP
       - cmd: kubectl get vs
+    
+  lab5-1:k3s:
+    desc: desc: Istio Service Mesh Essentials (Lab 5.1)
+    dir: "{{ISTIO_WORKDIR}}"
+    cmds:
+      - task: lab4-1:k3s
