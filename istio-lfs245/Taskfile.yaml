@@ -316,3 +316,58 @@ tasks:
     dir: "{{ISTIO_WORKDIR}}"
     cmds:
       - task: lab4-1:k3s
+      - cmd: |
+          cd ${HOME}/.local/istio/{{.ISTIO_VERSION}}/samples \
+          && helloworld/gen-helloworld.sh --version 1 | kubectl apply -f - \
+          && helloworld/gen-helloworld.sh --version 2 | kubectl apply -f - \
+          && kubectl apply -f sleep/sleep.yaml
+      - cmd: kubectl get pods
+      - for: [0, 1, 2, 3, 4, 5]
+        cmd: > 
+          kubectl exec -it deploy/sleep -- curl
+          http://helloworld.devault.svc.cluster.local:5000/hello
+      - cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: networking.istio.io/v1beta1
+          kind: DestinationRule
+          metadata:
+            name: helloworld-dr
+          spec:
+            host: helloworld.default.svc.cluster.local
+            subnets:
+              - name: version-one
+                labels:
+                  version: v1
+              - name: version-two
+                labels:
+                  version: v2
+          EOF
+      - cmd: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: networking.istio.io/v1beta1
+          kind: VirtualService
+          metadata:
+            name: helloworld-vs
+          spec:
+            hosts:
+              - helloworld.default.svc.cluster.local
+            http:
+              - route:
+                  - destination:
+                      host: helloworld.default.svc.cluster.local
+                      port:
+                        number: 5000
+                      subset: version-one
+                    weight: 95
+                  - destination:
+                      host: helloworld.default.svc.cluster.local
+                      port:
+                        number: 5000
+                      subset: version-two
+                    weight: 5
+          EOF
+      - for: [0, 1, 2, 3, 4, 5]
+        cmd: > 
+          kubectl exec -it deploy/sleep -- curl
+          http://helloworld.devault.svc.cluster.local:5000/hello
+      
