@@ -267,6 +267,9 @@ tasks:
           -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml
       - cmd: kubectl label namespace default istio-injection=enabled
       - cmd: kubectl apply -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
+      - cmd: kubectl -n default wait pod --for=condition=Ready -l app=httpbin --timeout 60s
+      - cmd: kubectl -n default rollout restart deploy/httpbin
+      - cmd: kubectl -n default wait pod --for=condition=Ready -l app=httpbin --timeout 60s
       - cmd: |
           cat <<EOF | kubectl apply -f -
           apiVersion: networking.istio.io/v1alpha3
@@ -284,9 +287,6 @@ tasks:
                 hosts:
                   - "httpbin.com"
           EOF
-      - cmd: |
-          export INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          curl -v -H 'Host: httpbin.com' http://${INGRESS_IP}
       - cmd: kubectl -n istio-system logs deploy/istio-ingressgateway
       - cmd: |
           cat <<EOF | kubectl apply -f -
@@ -307,8 +307,8 @@ tasks:
                         number: 8000
           EOF
       - cmd: |
-          export INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          curl -v -H 'Host: httpbin.com' http://${INGRESS_IP}
+          export INGRESS_IP=$(kubectl -n istio-system get svc istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}') \
+          && curl -v -H 'Host: httpbin.com' http://${INGRESS_IP}
       - cmd: kubectl get vs
     status:
       - kubectl -n istio-system wait pod -l app.kubernetes.io/name=istio-ingressgateway --timout 30s
@@ -710,8 +710,10 @@ tasks:
       - cmd: kubectl create ns sleep --dry-run -o yaml | kubectl apply -f -
       - cmd: kubectl -n sleep apply -f {{.ISTIO_SAMPLES}}/sleep/sleep.yaml
       - cmd: kubectl -n sleep wait pod --for=condition=Ready -l app=sleep --timeout 60s
+      - cmd: kubectl -n sleep rollout restart deploy/sleep
       - cmd: kubectl -n default apply -f {{.ISTIO_SAMPLES}}/httpbin/httpbin.yaml
       - cmd: kubectl -n default wait pod --for=condition=Ready -l app=httpbin --timeout 60s
+      - cmd: kubectl -n default rollout restart deploy/httpbin
       - cmd: >
           kubectl exec -it deploy/sleep -n sleep --
           curl -H "Connection: close" 
@@ -754,6 +756,8 @@ tasks:
         ignore_error: true
       # Using the AuthorizationPolicy Resource
       - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/sleep/sleep.yaml
+      - cmd: kubectl wait pod --for=condition=Ready -l app=sleep --timeout 60s
+      - cmd: kubectl rollout restart deploy/sleep
       - cmd: kubectl wait pod --for=condition=Ready -l app=sleep --timeout 60s
       - cmd: >
           kubectl exec -it deploy/sleep --
@@ -844,14 +848,22 @@ tasks:
                     serviceAnnotations:
                       metallb.universe.tf/allow-shared-ip: edge-endpoint
           EOF
+      
+      - cmd: istioctl validate -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml
       - cmd: |
           istioctl install --verify --skip-confirmation \
           --set values.global.platform={{.PLATFORM}} \
           -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml
+      - cmd: istioctl analyze
       - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/sleep/sleep.yaml
+      - cmd: kubectl wait pod --for=condition=Ready -l app=sleep --timeout 60s
+      - cmd: kubectl rollout restart deploy/sleep
       - cmd: kubectl wait pod --for=condition=Ready -l app=sleep --timeout 60s
       - cmd: kubectl apply -f {{.ISTIO_SAMPLES}}/httpbin/httpbin.yaml
       - cmd: kubectl wait pod --for=condition=Ready -l app=httpbin --timeout 60s
+      - cmd: kubectl rollout restart deploy/httpbin
+      - cmd: kubectl wait pod --for=condition=Ready -l app=httpbin --timeout 60s
+      - cmd: kubectl label namespace default istio-injection-
       - cmd: kubectl label namespace default istio.io/dataplane-mode=ambient
       - cmd: >
           kubectl exec -it deploy/sleep --
@@ -893,9 +905,7 @@ tasks:
           httpbin.default.svc.cluster.local:8000/ip
       # The Waypoint Proxy
       - cmd: >
-          kubectl get crd gateways.gateway.netzorking.k8s.io
-          &> /dev/null
-          || { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.0.0"
-          | kubectl apply -f -; }
+          kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
+          kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
       - cmd: istioctl waypoint apply --service-account httpbin
       
