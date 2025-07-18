@@ -21,9 +21,18 @@ tasks:
           apiVersion: metallb.io/v1beta1
           kind: IPAddressPool
           metadata:
-            name: default-pool
+            name: default
             namespace: metallb-system
           spec:
             addresses:
             - {{.IP_ADDRESS}}/32
+          ---
+          apiVersion: metallb.io/v1beta1
+          kind: L2Advertisement
+          metadata:
+            name: default
+            namespace: metallb-system
+          spec:
+            ipAddressPools:
+            - default
           EOF
