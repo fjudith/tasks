@@ -259,7 +259,7 @@ tasks:
                 - name: istio-ingressgateway
                   k8s:
                     serviceAnnotations:
-                      metallb.universe.tf/allow-shared-ip: edge-endpoint
+                      metallb.io/allow-shared-ip: edge-endpoint
           EOF
       - cmd: |
           istioctl install --verify --skip-confirmation \
@@ -340,8 +340,8 @@ tasks:
           --timeout=120s
       - cmd: kubectl get pods
       - cmd: sleep 10s
-      - for: [0, 1, 2, 3, 4, 5]
-        cmd: > 
+      - for: ['0', '1', '2', '3', '4', '5']
+        cmd: >
           kubectl exec -it deploy/sleep -- curl
           http://helloworld.default.svc.cluster.local:5000/hello
       # Traffic Splitting
@@ -385,7 +385,7 @@ tasks:
                       subset: version-two
                     weight: 5
           EOF
-      - for: [0, 1, 2, 3, 4, 5]
+      - for: ['0', '1', '2', '3', '4', '5']
         cmd: > 
           kubectl exec -it deploy/sleep -- curl
           http://helloworld.default.svc.cluster.local:5000/hello
@@ -614,7 +614,7 @@ tasks:
                 interval: 5s
                 maxEjectionPercent: 100
           EOF
-      - for: [0, 1, 2, 3, 4, 5]
+      - for: ['0', '1', '2', '3', '4', '5']
         cmd: >
           kubectl exec deploy/fortio -c fortio --
           fortio load
@@ -624,7 +624,7 @@ tasks:
           -quiet
           http://fakeservice
       - cmd: sleep 185s
-      - for: [0, 1, 2, 3, 4, 5]
+      - for: ['0', '1', '2', '3', '4', '5']
         cmd: >
           kubectl exec deploy/fortio -c fortio --
           fortio load
@@ -653,7 +653,7 @@ tasks:
           --for=condition=Ready
           -l 'app=reviews'
           --timeout=120s
-      - for: [0, 1, 2, 3, 4, 5]
+      - for: ['0', '1', '2', '3', '4', '5']
         cmd: |
           export GATEWAY_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}') \
           && curl -s "http://${GATEWAY_IP}/productpage" | grep -o "<title>.*</title>"
@@ -846,7 +846,7 @@ tasks:
                 - name: istio-ingressgateway
                   k8s:
                     serviceAnnotations:
-                      metallb.universe.tf/allow-shared-ip: edge-endpoint
+                      metallb.io/allow-shared-ip: edge-endpoint
           EOF
       
       - cmd: istioctl validate -f {{.ISTIO_WORKDIR}}/install-istio-config.yaml
@@ -908,4 +908,26 @@ tasks:
           kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
           kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
       - cmd: istioctl waypoint apply --service-account httpbin
-      
+
+  prune:
+    desc: Cleanup provisionned resources
+    dir: "{{.ISTIO_WORKDIR}}"
+    vars:
+      ISTIO_SAMPLES:
+        sh: echo ${HOME}/.local/istio/{{.ISTIO_VERSION}}/samples
+      MANIFESTS:
+      - "{{.ISTIO_SAMPLES}}/bookinfo/platform/kube/bookinfo.yaml"
+      - "{{.ISTIO_SAMPLES}}/bookinfo/networking/bookinfo-gateway.yaml"
+      - "{{.ISTIO_SAMPLES}}/sleep/sleep.yaml"
+      - "{{.ISTIO_SAMPLES}}/httpbin/httpbin.yaml"
+    cmds:
+    - "{{range .MANIFESTS}}kubectl --wait --force --ignore-not-found=true delete -f {{.}}\n{{end}}"
+    - >
+      kubectl --wait --force --ignore-not-found=true delete
+      -n sleep -f {{.ISTIO_SAMPLES}}/sleep/sleep.yaml
+    - kubectl --wait --force --ignore-not-found=true delete namespace sleep
+    - >
+      kubectl --wait --force --ignore-not-found=true delete
+      -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
+    - istioctl uninstall --purge --skip-confirmation
+    - kubectl --wait --force --grace-period=0 --ignore-not-found=true delete namespace istio-system

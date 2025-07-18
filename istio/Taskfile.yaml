@@ -249,7 +249,7 @@ tasks:
                 - name: istio-ingressgateway
                   k8s:
                     serviceAnnotations:
-                      metallb.universe.tf/allow-shared-ip: edge-endpoint
+                      metallb.io/allow-shared-ip: edge-endpoint
           EOF
       - cmd: |
           istioctl install --verify --skip-confirmation \
